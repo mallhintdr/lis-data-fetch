@@ -349,6 +349,32 @@ def group_and_save(features, district_name, tehsil_name, custom_output_folder=No
                     })
 
         if union_features:
+            unified_path = os.path.join(group_folder, f"{mouza}.geojson")
+            with open(unified_path, "w", encoding="utf-8") as f:
+                json.dump({"type": "FeatureCollection", "features": union_features}, f, indent=2)
+
+        # Create a unified GeoJSON by dissolving geometries that share the same group key
+        union_features = []
+        for key, key_feats in key_groups.items():
+            polygons = []
+            for feat in key_feats:
+                geom = feat.get("geometry")
+                if geom and geom.get("type") == "Polygon":
+                    poly = shapely_shape(geom)
+                    if not poly.is_valid:
+                        poly = poly.buffer(0)
+                    if poly.is_valid and not poly.is_empty:
+                        polygons.append(poly)
+            if polygons:
+                merged = unary_union(polygons)
+                if merged.is_valid and not merged.is_empty:
+                    union_features.append({
+                        "type": "Feature",
+                        "geometry": mapping(merged),
+                        "properties": {"Murabba_No": key}
+                    })
+
+        if union_features:
             unified_path = os.path.join(group_folder, "murabba.geojson")
             with open(unified_path, "w", encoding="utf-8") as f:
                 json.dump({"type": "FeatureCollection", "features": union_features}, f, indent=2)
